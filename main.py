@@ -85,21 +85,21 @@ def get_data_from_providers() -> List[Asset]:
         return []
 
     # Processa os dados brutos e transforma em nossa estrutura final 'Asset'
-     assets_list = []
+    assets_list = []
     for coin_item in raw_data:
-        quote_data = coin_item.get('quote_usd', {})
+        quote_data = coin_item.get("quote_usd", {})
 
         asset = Asset(
             rank=0,
             id=f"{coin_item['name'].lower().replace(' ', '-')}-{coin_item['symbol'].lower()}",
-            name=coin_item['name'],
-            symbol=coin_item['symbol'],
-            price=quote_data.get('price', 0.0),
+            name=coin_item["name"],
+            symbol=coin_item["symbol"],
+            price=quote_data.get("price", 0.0),
             # Na UI, vamos continuar mostrando a variação de 24h por enquanto
-            percent_from_ath=quote_data.get('percentChange24h', 0.0),
+            percent_from_ath=quote_data.get("percentChange24h", 0.0),
             # A função de cálculo agora recebe o dicionário de cotação completo
             pain_score=calculate_pain_score(quote_data),
-            logo_url=coin_item['logo_url']
+            logo_url=coin_item["logo_url"],
         )
         assets_list.append(asset)
 
