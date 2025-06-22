@@ -94,11 +94,11 @@ def scrape_coinmarketcap() -> List[AssetData]:
 
             assets_list.append(
                 {
-                    "name": name,
-                    "symbol": symbol,
-                    "price": float(price),
-                    "percent_from_ath": float(simulated_ath_drop),
-                    "logo_url": logo_url,
+                    "id": coin.get("id"),
+                    "name": coin.get("name"),
+                    "symbol": coin.get("symbol"),
+                    "quote_usd": quote,  # Passa o dicionário de cotação inteiro
+                    "logo_url": f"https://s2.coinmarketcap.com/static/img/coins/64x64/{coin.get('id')}.png",
                 }
             )
 

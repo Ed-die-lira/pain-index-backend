@@ -26,18 +26,42 @@ last_cache_time: float = 0
 CACHE_DURATION_SECONDS = 60 * 15  # Cache de 15 minutos
 
 
-def calculate_pain_score(percent_from_ath: float) -> int:
-    """Calcula o Pain Score com base na queda do ATH."""
-    score = 0
-    # Aumenta a dor exponencialmente quanto maior a queda
-    if percent_from_ath < -50:
-        score = int(abs(percent_from_ath) * 0.9)
-    if percent_from_ath < -80:
-        score = int(abs(percent_from_ath) * 1.0)
-    if percent_from_ath < -95:
-        score = int(abs(percent_from_ath) * 1.05)  # Bônus para capitulação total
+def calculate_pain_score(quote: dict) -> int:
+    """
+    Calcula o Pain Score com base em múltiplos fatores de tempo.
+    `quote` é o dicionário de cotação do ativo (ex: quote['USD']).
+    """
+    # Pega as variações de preço. Se não existirem, o padrão é 0.
+    change_24h = quote.get("percentChange24h", 0.0)
+    change_7d = quote.get("percentChange7d", 0.0)
+    change_30d = quote.get("percentChange30d", 0.0)
 
-    return min(score, 100)  # Limita o score a 100
+    # Define os pesos para cada período de tempo
+    weight_24h = 0.50  # Dor imediata (50% do peso)
+    weight_7d = 0.30  # Dor na semana (30% do peso)
+    weight_30d = 0.20  # Dor no mês (20% do peso)
+
+    # Calcula a "dor" para cada período (só nos importamos com quedas)
+    pain_24h = abs(change_24h) if change_24h < 0 else 0
+    pain_7d = abs(change_7d) if change_7d < 0 else 0
+    pain_30d = abs(change_30d) if change_30d < 0 else 0
+
+    # Fórmula do Score: Média ponderada da dor, com um multiplicador para amplificar o resultado
+    # O multiplicador (ex: 2.5) é ajustado para que scores altos (80-100) sejam possíveis em quedas fortes.
+    raw_score = (
+        pain_24h * weight_24h + pain_7d * weight_7d + pain_30d * weight_30d
+    ) * 2.5
+
+    # Adiciona um "bônus de pânico" se a queda diária for muito grande
+    if pain_24h > 10:  # Se caiu mais de 10% em um dia
+        raw_score += 15
+    if pain_24h > 20:  # Se caiu mais de 20%
+        raw_score += 10  # Bônus adicional
+
+    # Garante que o score final fique entre 0 e 100
+    final_score = min(int(raw_score), 100)
+
+    return final_score
 
 
 def get_data_from_providers() -> List[Asset]:
@@ -61,17 +85,21 @@ def get_data_from_providers() -> List[Asset]:
         return []
 
     # Processa os dados brutos e transforma em nossa estrutura final 'Asset'
-    assets_list = []
-    for item in raw_data:
+     assets_list = []
+    for coin_item in raw_data:
+        quote_data = coin_item.get('quote_usd', {})
+
         asset = Asset(
-            rank=0,  # O rank será definido após a ordenação
-            id=f"{item['name'].lower().replace(' ', '-')}-{item['symbol'].lower()}",
-            name=item["name"],
-            symbol=item["symbol"],
-            price=item["price"],
-            percent_from_ath=item["percent_from_ath"],
-            pain_score=calculate_pain_score(item["percent_from_ath"]),
-            logo_url=item["logo_url"],
+            rank=0,
+            id=f"{coin_item['name'].lower().replace(' ', '-')}-{coin_item['symbol'].lower()}",
+            name=coin_item['name'],
+            symbol=coin_item['symbol'],
+            price=quote_data.get('price', 0.0),
+            # Na UI, vamos continuar mostrando a variação de 24h por enquanto
+            percent_from_ath=quote_data.get('percentChange24h', 0.0),
+            # A função de cálculo agora recebe o dicionário de cotação completo
+            pain_score=calculate_pain_score(quote_data),
+            logo_url=coin_item['logo_url']
         )
         assets_list.append(asset)
 
